@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Am-I-Online</string>
+    <string name="hint_server">Server URL (ws://NAS-IP:8787/ws)</string>
+    <string name="hint_token">Token (STATUS_TOKEN)</string>
+    <string name="hint_name">Device name (e.g. My Phone)</string>
+    <string name="btn_save">Save</string>
+    <string name="btn_start">Start sharing</string>
+    <string name="btn_stop">Stop</string>
+    <string name="btn_usage">Grant Usage access</string>
+    <string name="btn_battery">Disable battery optimization</string>
+</resources>

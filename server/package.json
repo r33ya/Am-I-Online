@@ -1,0 +1,14 @@
+{
+  "name": "am-i-online-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Public status API + static host for the Am-I-Online page.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,851 @@
+/* Am-I-Online status board.
+   Direction and token rationale live in /DESIGN.md.
+   Palette: Framer artboard, monochrome chrome, a flat neutral fallback tile.
+   No gradients, no glow, and no accent colour: colour is reserved for status. */
+
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #090909;
+  --surface: #141414;
+  --surface-raised: #1c1c1c;
+  --hairline: #262626;
+  --hairline-soft: #1a1a1a;
+  --ink: #ffffff;
+  --muted: #999999;
+  --online: #22c55e;
+  --offline: #6e6e6e;
+  --danger: #ff5577;
+  --tile-bg: #2b2b2b;
+  --tile-ink: #f0f0f0;
+  --tile-border: transparent;
+  --lyric-dim: #9a9a9a;
+  --focus: #ffffff;
+  --track: #262626;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --canvas: #f2f1f4;
+  --surface: #fbfafd;
+  --surface-raised: #f0eff3;
+  --hairline: #e2e1e7;
+  --hairline-soft: #eceaf1;
+  --ink: #14131a;
+  --muted: #5f5d68;
+  --online: #0f7a3d;
+  --offline: #7d7b86;
+  --danger: #c0264a;
+  --tile-bg: #e9e7ec;
+  --tile-ink: #1a1a1a;
+  --tile-border: #d6d3db;
+  --lyric-dim: #6a6a6a;
+  --focus: #14131a;
+  --track: #e2e1e7;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  padding: 24px;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+/* margin:auto centers the card on both axes and still allows scrolling
+   when the card is taller than the viewport. overflow:clip contains the
+   entrance animations so they never create a scrollbar. */
+.board {
+  position: relative;
+  margin: auto;
+  width: min(720px, 100%);
+  padding: 24px 24px 18px;
+  border: 1px solid var(--hairline);
+  border-radius: 20px;
+  overflow: clip;
+  background: var(--surface);
+}
+
+/* ------------------------------------------------------------------- header */
+
+.board-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+
+.board-id {
+  min-width: 0;
+}
+
+h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.8px;
+}
+
+.board-sub {
+  margin: 3px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.board-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+
+.state {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Round status marks: a circle reads as a lamp, which is the point. */
+.state-mark {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--offline);
+  flex: none;
+}
+
+.state[data-state="online"] {
+  color: var(--ink);
+}
+
+.state[data-state="online"] .state-mark {
+  background: var(--online);
+}
+
+.theme-toggle {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.theme-toggle:hover {
+  border-color: var(--muted);
+}
+
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.theme-glyph {
+  display: none;
+}
+
+[data-theme="dark"] .theme-glyph[data-glyph="moon"],
+[data-theme="light"] .theme-glyph[data-glyph="sun"] {
+  display: block;
+}
+
+/* -------------------------------------------------------------------- stage */
+
+.stage {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+  padding: 18px 0;
+  min-height: 132px;
+}
+
+.pane {
+  position: relative;
+  flex: 0 0 100%;
+  min-width: 0;
+}
+
+.status-pane {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.status-pane[hidden] {
+  display: none;
+}
+
+/* One device fills the card. A second compresses the first to the left half
+   and takes the right half, so the eye follows the device that just joined. */
+.stage[data-count="2"] .pane {
+  flex-basis: calc(50% - 8px);
+}
+
+.stage[data-count="3"] .pane {
+  flex-basis: calc(33.333% - 11px);
+}
+
+.stage[data-count="2"] .pane + .pane,
+.stage[data-count="3"] .pane + .pane {
+  padding-left: 16px;
+  border-left: 1px solid var(--hairline-soft);
+}
+
+.stage[data-wrap="true"] {
+  flex-wrap: wrap;
+}
+
+.stage[data-wrap="true"] .pane {
+  flex-basis: calc(50% - 8px);
+}
+
+/* --------------------------------------------------------------- pane parts */
+
+.pane-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.device-name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.device-kind {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.device-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.device-state .state-mark {
+  width: 8px;
+  height: 8px;
+}
+
+.pane[data-online="true"] .device-state {
+  color: var(--ink);
+}
+
+.pane[data-online="true"] .device-state .state-mark {
+  background: var(--online);
+}
+
+/* now playing */
+
+.playing {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 14px;
+  align-items: center;
+}
+
+.cover {
+  width: 72px;
+  height: 72px;
+  align-self: center;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+  border: 1px solid var(--hairline);
+  background: var(--surface-raised);
+  overflow: hidden;
+}
+
+/* object-fit only. Do not set width/height:100% here, or the image stretches
+   to the grid row height and the square becomes a rectangle. */
+img.cover {
+  object-fit: cover;
+  opacity: 0;
+}
+
+img.cover.is-loaded {
+  opacity: 1;
+}
+
+.playing-meta {
+  min-width: 0;
+}
+
+.track {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track-artist {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track-album {
+  margin: 1px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progress {
+  margin-top: 10px;
+}
+
+.progress-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--track);
+  overflow: hidden;
+}
+
+/* Solid "active" color, shared with the online mark. */
+.progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--online);
+}
+
+.progress-times {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------- lyrics */
+
+/* The current line is larger and heavier, and the word being sung lights up.
+   Both the lit and unlit states are readable text (both pass 4.5:1), so the
+   highlight reads as progress rather than as the only way to read the line. */
+.lyrics {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline-soft);
+  min-height: 58px;
+}
+
+.lyric-line {
+  position: relative;
+  display: none;
+  margin: 0;
+}
+
+.lyric-line.is-prev,
+.lyric-line.is-next {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.lyric-line.is-current {
+  display: block;
+  margin: 3px 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  color: var(--ink);
+}
+
+.lyric-words {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--lyric-dim);
+}
+
+.lyric-line.is-prev .lyric-words,
+.lyric-line.is-next .lyric-words {
+  color: var(--muted);
+}
+
+/* The sung overlay: the same text on top, clipped from the right, so the
+   highlight sweeps across the line instead of flipping word by word. This is a
+   solid colour behind a clip, not a gradient. */
+/* Positioned against the line, not the pane, and only as tall as the text, so
+   it sits exactly on top of the dim copy instead of the whole card. */
+.lyric-words-lit {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  color: var(--ink);
+  clip-path: inset(0 100% 0 0);
+}
+
+.lyric-translation {
+  display: none;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--muted);
+}
+
+.lyric-line.is-current .lyric-translation {
+  display: block;
+}
+
+/* --------------------------------------------------- fallback tile */
+
+/* phone activity */
+
+.activity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-icon {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid var(--hairline);
+  background: var(--surface-raised);
+  overflow: hidden;
+}
+
+.app-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Fallback tile for missing album art or a missing app icon.
+   Framer's spotlight card is a solid tile, so this is a flat fill: no gradient,
+   no glow. It is declared after .cover and .app-icon so it wins over their
+   surface background, and it is fully theme-driven. */
+.tile {
+  background-color: var(--tile-bg);
+  color: var(--tile-ink);
+  border-color: var(--tile-border);
+}
+
+.tile .monogram {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.app-icon.tile .monogram {
+  font-size: 16px;
+}
+
+.activity-info {
+  min-width: 0;
+}
+
+.activity-value {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  overflow-wrap: anywhere;
+}
+
+.activity-package {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------- plain messages and states */
+
+.message {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-top: 2px;
+}
+
+.message-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.message-note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.message-note code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.equalizer {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+  margin-right: 2px;
+}
+
+.equalizer span {
+  width: 2px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--online);
+  transform-origin: bottom;
+}
+
+/* ------------------------------------------------------------------- footer */
+
+.board-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hairline-soft);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.board-foot span {
+  min-width: 0;
+}
+
+.foot-note {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* ------------------------------------------------------------------- motion */
+
+@media (prefers-reduced-motion: no-preference) {
+  body {
+    transition: background-color 260ms ease, color 260ms ease;
+  }
+
+  .board,
+  .board-head,
+  .board-foot,
+  .pane,
+  .theme-toggle {
+    transition: background-color 260ms ease, border-color 260ms ease, color 260ms ease;
+  }
+
+  /* Arrival: scale down plus fade, so the entrance adds no scrollable area. */
+  .board {
+    animation: board-in 380ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+
+  /* Split and merge: a device joining compresses the first pane to the left
+     half while the new one takes the right half, so the eye tracks the change. */
+  .pane {
+    transition: flex-basis 340ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+
+  .pane.is-new {
+    animation: pane-in 340ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    animation-delay: var(--enter-delay, 0ms);
+  }
+
+  /* One-shot wash marking the device that just joined. Clipped by .board. */
+  .pane.is-new::after {
+    content: "";
+    position: absolute;
+    inset: -10px;
+    border-radius: 15px;
+    background: var(--online);
+    pointer-events: none;
+    animation: pane-flash 900ms ease-out both;
+    animation-delay: var(--enter-delay, 0ms);
+  }
+
+  /* Content inside a joining pane arrives in sequence, so the pane does not
+     pop in as one block. */
+  .pane.is-new .pane-body > * {
+    animation: content-in 320ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    animation-delay: calc(var(--enter-delay, 0ms) + 60ms);
+  }
+
+  .pane.is-new .playing > *:nth-child(2) {
+    animation: content-in 320ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    animation-delay: calc(var(--enter-delay, 0ms) + 140ms);
+  }
+
+  .pane.is-new .app-icon,
+  .pane.is-new .cover {
+    animation: cover-in 360ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    animation-delay: calc(var(--enter-delay, 0ms) + 60ms);
+  }
+
+  .cover {
+    transition: opacity 320ms ease;
+  }
+
+  img.cover {
+    transition: opacity 320ms ease;
+  }
+
+  .state,
+  .device-state {
+    transition: color 220ms ease;
+  }
+
+  .state-mark {
+    transition: background-color 220ms ease;
+  }
+
+  /* A status change sends out one ring, then stops. */
+  .state.is-changed[data-state="online"] .state-mark::after,
+  .pane[data-online="true"] .device-state.is-changed .state-mark::after {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 2px solid var(--online);
+    animation: ring-out 720ms ease-out both;
+  }
+
+  /* Live marker: a one-shot ring when a device comes online, then a slow
+     breath while it stays online. Owner-approved (see DESIGN.md). */
+  .state[data-state="online"] .state-mark,
+  .pane[data-online="true"] .device-state .state-mark {
+    animation: mark-breathe 2600ms ease-in-out infinite;
+  }
+
+  .is-changed {
+    animation: value-in 300ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+
+  /* Playing indicator: three bars moving only while audio is actually playing. */
+  .equalizer span {
+    animation: eq 900ms ease-in-out infinite;
+  }
+
+  .equalizer span:nth-child(2) {
+    animation-delay: 140ms;
+  }
+
+  .equalizer span:nth-child(3) {
+    animation-delay: 280ms;
+  }
+
+  /* The lyric wipe eases between clock samples, and a new line eases in. */
+  .lyric-words-lit {
+    transition: clip-path 150ms linear;
+  }
+
+  .lyric-line.is-fresh {
+    animation: line-in 260ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+
+  [data-theme="dark"] .theme-glyph[data-glyph="moon"] svg,
+  [data-theme="light"] .theme-glyph[data-glyph="sun"] svg {
+    animation: glyph-in 320ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+
+  .theme-toggle:active .theme-glyph svg {
+    transform: scale(0.88);
+  }
+}
+
+@keyframes board-in {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pane-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes content-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes cover-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pane-flash {
+  from {
+    opacity: 0.16;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes ring-out {
+  from {
+    opacity: 0.85;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2);
+  }
+}
+
+@keyframes value-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes mark-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.22);
+    opacity: 0.72;
+  }
+}
+
+@keyframes glyph-in {
+  from {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes eq {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes line-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .stage[data-count="2"],
+  .stage[data-count="3"] {
+    flex-direction: column;
+  }
+
+  .stage[data-count="2"] .pane,
+  .stage[data-count="3"] .pane {
+    flex-basis: 100%;
+  }
+
+  .stage[data-count="2"] .pane + .pane,
+  .stage[data-count="3"] .pane + .pane {
+    padding-left: 0;
+    padding-top: 14px;
+    border-left: 0;
+    border-top: 1px solid var(--hairline-soft);
+  }
+
+  .board {
+    padding: 20px 16px 14px;
+  }
+}

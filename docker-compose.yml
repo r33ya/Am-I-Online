@@ -1,0 +1,17 @@
+services:
+  am-i-online:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: am-i-online
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8787}:8787"
+    environment:
+      - PORT=8787
+      - STATUS_TOKEN=${STATUS_TOKEN:?set STATUS_TOKEN in .env}
+      - OFFLINE_AFTER_MS=${OFFLINE_AFTER_MS:-15000}
+      - WEB_DIR=/app/web
+      - DATA_FILE=/app/data/status.json
+    volumes:
+      - ./server/data:/app/data
