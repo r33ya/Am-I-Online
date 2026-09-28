@@ -1,0 +1,14 @@
+{
+  "name": "am-i-online-desktop-agent",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Keeps a live connection to the Am-I-Online server and reports Folia's playback state.",
+  "main": "agent.js",
+  "scripts": {
+    "start": "node agent.js"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
